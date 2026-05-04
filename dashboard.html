@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Wipsee Mobile GPS - Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ========================
+     HEADER
+     ======================== -->
+<h1>Dashboard GPS</h1>
+
+<!-- ========================
+     BACK BUTTON
+     ======================== -->
+<button id="backBtn" class="btn btn-accent">← Retour à l'accueil</button>
+
+<!-- ========================
+     VEHICLE MANAGEMENT SECTION
+     ========================
+     Create new vehicles and manage existing ones
+     -->
+
+<!-- Top row: Vehicle creation form + image preview -->
+<div class="cars-top">
+    <div id="carCreatePanel" class="card compact">
+        <h2>Créer un véhicule</h2>
+
+        <form id="carForm" class="car-form">
+            <label for="carName">Nom du véhicule</label>
+            <input id="carName" class="form-control" placeholder="Renault Clio" required>
+
+            <label for="carImageUrl">Image (URL)</label>
+            <input id="carImageUrl" class="form-control" placeholder="https://... (optionnel)">
+
+            <div class="form-row">
+                <button id="chooseFileBtn" type="button" class="btn btn-ghost btn-file" aria-label="Choisir une image">Choisir une image…</button>
+                <input id="carImageFile" type="file" accept="image/*" class="hidden" aria-hidden="true">
+                <small class="muted">ou collez une URL d'image</small>
+            </div>
+
+            <label for="carDesc">Description</label>
+            <textarea id="carDesc" class="form-control" placeholder="Ex. Gris, deux sièges enfants"></textarea>
+
+            <div class="form-actions car-form-actions">
+                <button id="addCarBtn" type="button" class="btn btn-primary">Ajouter</button>
+                <button id="cancelCarBtn" type="button" class="btn btn-ghost hidden">Annuler</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="carPreviewPanel" class="card">
+        <h2>Aperçu du véhicule</h2>
+        <div class="car-preview" id="carPreview">
+            <img id="carPreviewImg" src="https://via.placeholder.com/400x200?text=Voiture" alt="Aperçu véhicule">
+            <div class="car-preview-label">Aperçu</div>
+        </div>
+    </div>
+</div>
+
+<!-- Vehicle list and summary -->
+<div id="carsPanel" class="card cars-panel">
+    <h2>Mes véhicules</h2>
+    <div id="carsList" class="cars-list" role="list" aria-live="polite"></div>
+
+    <div id="carSummary" class="car-summary">
+        <label for="carSelect">Afficher récap pour :</label>
+        <select id="carSelect" class="form-control">
+            <option value="">-- Tous les véhicules --</option>
+        </select>
+        <div class="summary-value">Total : <span id="carTotalKm">0</span> km</div>
+
+        <div class="car-summary-actions">
+            <button id="exportDataBtn" class="btn btn-ghost">Exporter JSON</button>
+            <button id="importDataBtn" class="btn btn-ghost">Importer JSON</button>
+            <input id="importDataFile" type="file" accept=".json,application/json" class="hidden">
+        </div>
+    </div>
+</div>
+
+<!-- ========================
+     TRIP HISTORY SECTION
+     ========================
+     Displays all recorded trips with delete option
+     -->
+<ul id="history"></ul>
+
+<button id="clearHistoryBtn" class="btn btn-accent">Effacer l'historique</button>
+
+<!-- ========================
+     TRIP SUMMARY SECTION
+     ========================
+     Shows aggregated statistics by month/all time
+     Displays total distance and toll expenses
+     -->
+<div id="distanceSummary">
+    <div class="summary-header">
+        <span id="summaryTitle">Résumé du mois</span>
+
+        <label class="switch">
+            <input type="checkbox" id="summarySwitch">
+            <span class="slider"></span>
+        </label>
+
+        <span id="summaryMode">Mois</span>
+    </div>
+
+    <div class="summary-value">
+        <span id="summaryDistance">0</span> km parcourus
+    </div>
+
+    <div class="summary-sub">
+        Dépenses péages : <strong id="summaryToll">0.00</strong> €
+    </div>
+</div>
+
+<!-- ========================
+     MODALS
+     ========================
+     Overlay and trip details modal
+     -->
+<div id="overlay" class="hidden"></div>
+
+<!-- Trip details modal with PDF export -->
+<div id="details" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+    <button id="closeDetailsBtn" class="btn btn-ghost close-btn" aria-label="Fermer">✕</button>
+
+    <h2 id="detailsTitle">Détails du trajet</h2>
+
+    <p><strong>Conducteur :</strong> <span id="driver"></span></p>
+    <p><strong>Véhicule :</strong> <span id="vehicleName"></span></p>
+    <div id="vehicleImage" class="vehicle-image-container"></div>
+    <p><strong>Péages :</strong> <span id="tolls">0.00</span> € <button id="editTollsBtn" class="btn btn-ghost btn-sm">Modifier</button></p>
+    <p><strong>Distance :</strong> <span id="distance"></span> km</p>
+    <p><strong>Durée :</strong> <span id="duration"></span> min</p>
+    <p><strong>Départ :</strong> <span id="startTime"></span></p>
+    <p><strong>Arrivée :</strong> <span id="endTime"></span></p>
+    <p><strong>Remarque :</strong> <span id="remarkText"></span></p>
+
+    <div id="map"></div>
+
+    <div class="modal-actions">
+        <button id="exportPdfBtn" type="button" class="btn btn-accent">Exporter en PDF</button>
+    </div>
+</div>
+
+<!-- ========================
+      SCRIPTS
+      ======================== -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- Modules locaux -->
+<script src="js/storage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/smoke.js"></script>
+<script src="js/pdf-export.js"></script>
+<script src="js/dashboard.js"></script>
+
+</body>
+</html>
+
+
