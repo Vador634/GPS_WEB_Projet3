@@ -43,24 +43,48 @@ function _readFileAsDataURL(file) {
     });
 }
 
+// Redimensionne une image (largeur max 640 px, JPEG) pour limiter la place prise dans le localStorage.
+function _resizeImage(dataUrl, maxWidth = 640) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, maxWidth / img.width);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+    });
+}
+
+// N'accepte que les images http(s) ou data:image (pas de javascript: ou autre schema).
+function _safeImageSrc(src) {
+    return typeof src === 'string' && /^(https?:\/\/|data:image\/)/i.test(src.trim()) ? src.trim() : null;
+}
+
 async function addCarFromForm() {
     const name = carNameEl.value.trim();
     if (!name) return showToast('Veuillez saisir un nom de véhicule', {type:'warning'});
 
     let image = null;
     if (carImageFileEl && carImageFileEl.files && carImageFileEl.files[0]) {
-        try { image = await _readFileAsDataURL(carImageFileEl.files[0]); } catch(e) { console.warn('Lecture image échouée', e); }
+        try { image = await _resizeImage(await _readFileAsDataURL(carImageFileEl.files[0])); } catch(e) { console.warn('Lecture image échouée', e); }
     } else if (carImageUrlEl && carImageUrlEl.value.trim()) {
-        image = carImageUrlEl.value.trim();
+        image = _safeImageSrc(carImageUrlEl.value);
+        if (image && image.startsWith('data:')) image = await _resizeImage(image);
     }
 
     const car = { name, description: carDescEl.value.trim(), image };
     const saved = saveCar(car);
+    if (!saved) return showToast("Stockage du navigateur plein : essayez une image plus légère", {type:'warning', timeout:6000});
     showToast('Véhicule ajouté', {type:'success'});
 
     // reset form
     clearCarForm();
-    
+
     // refresh lists
     loadCars();
 
@@ -87,11 +111,14 @@ function renderCarCard(car) {
     div.setAttribute('tabindex', '0');
 
     const img = document.createElement('img');
-    img.src = car.image || 'https://via.placeholder.com/400x200?text=Voiture';
+    img.src = _safeImageSrc(car.image) || 'img/voiture.svg';
     img.alt = car.name;
+    img.onerror = () => { img.onerror = null; img.src = 'img/voiture.svg'; };
 
     const h = document.createElement('div');
-    h.innerHTML = `<strong>${car.name}</strong>`;
+    const strong = document.createElement('strong');
+    strong.textContent = car.name;
+    h.appendChild(strong);
 
     const meta = document.createElement('div');
     meta.className = 'meta';
@@ -117,11 +144,11 @@ function renderCarCard(car) {
     div.appendChild(h);
     div.appendChild(meta);
     div.appendChild(actions);
-    
+
     div.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel.click(); }
     });
-    
+
     return div;
 }
 
@@ -180,7 +207,7 @@ function clearCarForm() {
     if (carImageUrlEl) carImageUrlEl.value = '';
     if (carImageFileEl) carImageFileEl.value = '';
     const p = document.getElementById('carPreviewImg');
-    if (p) p.src = 'https://via.placeholder.com/400x200?text=Voiture';
+    if (p) p.src = 'img/voiture.svg';
     if (cancelCarBtn) cancelCarBtn.classList.add('hidden');
 }
 
@@ -194,7 +221,7 @@ if (carImageFileEl) carImageFileEl.addEventListener('change', async () => {
     }
 });
 // quand on colle une URL, mettre à jour l'aperçu
-if (carImageUrlEl) carImageUrlEl.addEventListener('input', (e) => { const v = e.target.value.trim(); const p = document.getElementById('carPreviewImg'); if (v && p) p.src = v; });
+if (carImageUrlEl) carImageUrlEl.addEventListener('input', (e) => { const v = _safeImageSrc(e.target.value); const p = document.getElementById('carPreviewImg'); if (v && p) p.src = v; });
 // annuler
 if (cancelCarBtn) cancelCarBtn.addEventListener('click', clearCarForm);
 
@@ -220,7 +247,7 @@ function loadHistory() {
     }
 
     // Ensuite construire la vue filtrée selon le véhicule sélectionné
-    let trips = allTrips.slice();
+    let trips = allTrips.slice().sort((a, b) => new Date(b.startTime || b.date || 0) - new Date(a.startTime || a.date || 0));
     const selectedCar = (carSelect && carSelect.value) ? carSelect.value : '';
     if (selectedCar) {
         trips = trips.filter(t => t.carId === selectedCar);
@@ -245,7 +272,8 @@ function loadHistory() {
         content.className = 'history-content';
         // afficher véhicule si associé
         const car = trip.carId ? getCarById(trip.carId) : null;
-        let contentText = `${trip.startCity} → ${trip.endCity} (${Number(trip.distance).toFixed(2)} km)`;
+        const date = trip.startTime ? new Date(trip.startTime).toLocaleDateString('fr-FR') + ' — ' : '';
+        let contentText = `${date}${trip.startCity} → ${trip.endCity} (${(Number(trip.distance) || 0).toFixed(2)} km)`;
         if (car) contentText += ` — ${car.name}`;
         if (Number(trip.toll) && Number(trip.toll) > 0) contentText += ` — Péages : ${Number(trip.toll).toFixed(2)} €`;
         content.textContent = contentText;
@@ -254,7 +282,8 @@ function loadHistory() {
         const delBtn = document.createElement('button');
         delBtn.className = 'btn btn-ghost delete-btn';
         delBtn.title = 'Supprimer';
-        delBtn.innerHTML = '🗑';
+        delBtn.textContent = '🗑';
+        delBtn.setAttribute('aria-label', 'Supprimer ce trajet');
         delBtn.onclick = (e) => { e.stopPropagation(); handleDeleteTrip(trip.id); };
 
         // assemble
@@ -277,7 +306,7 @@ function openDetails(trip) {
     overlayEl.classList.remove("hidden");
     // empêcher le défilement de fond pendant que la modale est ouverte
     document.body.classList.add('no-scroll');
-    
+
     // Store trip data for PDF export
     if (typeof setTripForPDF === 'function') {
         setTripForPDF(trip);
@@ -289,7 +318,15 @@ function openDetails(trip) {
     const vehicleImageEl = document.getElementById('vehicleImage');
     const car = trip.carId ? getCarById(trip.carId) : null;
     vehicleNameEl.textContent = car ? car.name : '—';
-    vehicleImageEl.innerHTML = car && car.image ? `<img src="${car.image}" alt="${car.name}" style="max-width:100%;height:120px;object-fit:cover;border-radius:var(--radius-sm)">` : '';
+    vehicleImageEl.innerHTML = '';
+    const carImg = car ? _safeImageSrc(car.image) : null;
+    if (carImg) {
+        const img = document.createElement('img');
+        img.src = carImg;
+        img.alt = car.name;
+        img.style.cssText = 'max-width:100%;height:120px;object-fit:cover;border-radius:var(--radius-sm)';
+        vehicleImageEl.appendChild(img);
+    }
 
     // péages
     const tollsEl = document.getElementById('tolls');
@@ -309,8 +346,11 @@ function openDetails(trip) {
         editBtn.parentNode.insertBefore(input, editBtn);
         input.focus();
 
+        let saved = false;
         const save = async () => {
-            const v = parseFloat(input.value) || 0;
+            if (saved) return;
+            saved = true;
+            const v = Math.max(0, parseFloat(input.value) || 0);
             // Update storage
             const tripsAll = getTrips();
             const idx = tripsAll.findIndex(t => t.id === trip.id);
@@ -332,11 +372,11 @@ function openDetails(trip) {
         };
 
         // handle enter and blur
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { input.remove(); tollsEl.style.display = ''; editBtn.textContent = 'Modifier'; delete tollsEl.dataset.editing; } });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { saved = true; input.remove(); tollsEl.style.display = ''; editBtn.textContent = 'Modifier'; editBtn.classList.remove('btn-save'); delete tollsEl.dataset.editing; } });
         input.addEventListener('blur', () => { setTimeout(() => { if (document.activeElement !== input) { save(); } }, 120); });
     };
 
-    distanceEl.textContent = trip.distance.toFixed(2);
+    distanceEl.textContent = (Number(trip.distance) || 0).toFixed(2);
     durationEl.textContent = trip.duration;
     startTimeEl.textContent = new Date(trip.startTime).toLocaleString();
     endTimeEl.textContent = new Date(trip.endTime).toLocaleString();
@@ -351,15 +391,24 @@ function openDetails(trip) {
     // Initialiser la carte du trajet réel (en rouge)
     detailMap = L.map("map");
     window.detailMap = detailMap; // Expose globally for PDF export
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(detailMap);
-
-    const realPath = trip.path.map(p => [p.lat, p.lng]);
-    const polyline = L.polyline(realPath, {
-        color: "red",
-        weight: 4
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        crossOrigin: true, // permet la capture de la carte dans le PDF
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(detailMap);
 
-    detailMap.fitBounds(polyline.getBounds());
+    const realPath = (Array.isArray(trip.path) ? trip.path : [])
+        .filter(p => p && isFinite(p.lat) && isFinite(p.lng))
+        .map(p => [p.lat, p.lng]);
+    if (Array.isArray(trip.estimatedPath) && trip.estimatedPath.length) {
+        L.polyline(trip.estimatedPath.map(p => [p.lat, p.lng]), { color: "blue", weight: 3, dashArray: "6 6" }).addTo(detailMap);
+    }
+    if (realPath.length) {
+        const polyline = L.polyline(realPath, { color: "red", weight: 4 }).addTo(detailMap);
+        detailMap.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+    } else {
+        detailMap.setView([46.6, 2.4], 5);
+    }
     // Leaflet nécessite invalidateSize après que la carte devienne visible
     setTimeout(() => { try { detailMap.invalidateSize(); } catch(e) {} }, 200);
 
@@ -391,7 +440,7 @@ function closeDetails() {
         detailMap.remove();
         detailMap = null;
     }
-    
+
     // Clear trip data for PDF export
     if (typeof setTripForPDF === 'function') {
         setTripForPDF(null);
@@ -411,7 +460,7 @@ overlayEl.onclick = closeDetails;
 clearHistoryBtn.onclick = () => {
     confirmToast("Voulez-vous vraiment effacer tout l'historique ?").then(ok => {
         if (!ok) return;
-        localStorage.removeItem("trips");
+        replaceTrips([]);
         loadHistory();
         closeDetails();
         showToast("Historique effacé !", {type:'success'});
@@ -591,7 +640,7 @@ if (carPreview) {
         if (f) {
             try {
                 const dataUrl = await _readFileAsDataURL(f);
-                const img = document.getElementById('carPreviewImg'); 
+                const img = document.getElementById('carPreviewImg');
                 if (img) img.src = dataUrl;
                 if (carImageUrlEl) carImageUrlEl.value = dataUrl;
             } catch (e) {

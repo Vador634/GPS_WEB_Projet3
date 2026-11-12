@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Wipsee Mobile GPS : enregistrement de trajets professionnels (distance, durée, péages, véhicule) avec carte et export PDF.">
     <title>Wipsee Mobile GPS - Enregistrement de trajet</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -19,32 +20,33 @@
 </header>
 
 <!-- ========================
-     ROUTE FORM - Entrée départ/arrivée et contrôles
+     DÉPART / ARRIVÉE ET CONTRÔLES
      ======================== -->
 <section id="route-form">
-    <p>Ville de départ : <span id="startCity">Localisation...</span></p>
-    <input id="end" class="form-control" placeholder="Ville d'arrivée">
+    <p>Ville de départ : <span id="startCity">Localisation…</span></p>
+    <input id="startManual" class="form-control hidden" placeholder="Ville de départ (ex : Bayonne)" autocomplete="address-level2">
+    <input id="end" class="form-control" placeholder="Ville d'arrivée" autocomplete="address-level2">
 
     <button id="startTrip" class="btn btn-primary" disabled>Démarrer</button>
     <button id="stopTrip" class="btn btn-ghost" disabled>Arrêter</button>
-    <button id="retryGeoBtn" class="btn btn-ghost">Réessayer localisation</button>
+    <button id="retryGeoBtn" class="btn btn-ghost">Réessayer la localisation</button>
 </section>
 
 <!-- ========================
-     INFO SECTION - Messages de statut
+     MESSAGES DE STATUT
      ======================== -->
-<section id="info">
-    <p id="warning" class="hidden">Simulation non réelle</p>
+<section id="info" aria-live="polite">
+    <p id="warning" class="hidden">Mode simulation : le trajet suit l'itinéraire estimé (pas de GPS)</p>
     <p id="liveStatus"></p>
 </section>
 
 <!-- ========================
-     MAP CONTAINER - Leaflet.js carte interactive
+     CARTE (Leaflet)
      ======================== -->
 <div id="map"></div>
 
 <!-- ========================
-     RESULT SECTION - Résumé du trajet et saisie utilisateur
+     RÉCAPITULATIF ET ENREGISTREMENT
      ======================== -->
 <section id="result" class="hidden">
     <h2>Récapitulatif du trajet</h2>
@@ -57,26 +59,26 @@
         <li id="tollResult"></li>
     </ul>
 
-    <label>Prénom conducteur</label>
-    <input id="firstname" class="form-control">
+    <label for="firstname">Prénom du conducteur</label>
+    <input id="firstname" class="form-control" autocomplete="given-name">
 
-    <label>Nom conducteur</label>
-    <input id="lastname" class="form-control">
+    <label for="lastname">Nom du conducteur</label>
+    <input id="lastname" class="form-control" autocomplete="family-name">
 
-    <label>Remarque</label>
+    <label for="remark">Remarque</label>
     <textarea id="remark" class="form-control"></textarea>
 
-    <label>Péages (€)</label>
+    <label for="toll">Péages (€)</label>
     <input id="toll" type="number" step="0.01" min="0" class="form-control" value="0">
 
-    <label>Véhicule</label>
+    <label for="carSelectForSave">Véhicule</label>
     <select id="carSelectForSave" class="form-control">
         <option value="">-- Aucun --</option>
     </select>
 
     <div class="button-group">
         <button id="saveTrip" class="btn btn-primary">Valider le trajet</button>
-        <button id="clearTollBtn" type="button" class="btn btn-ghost">Réinitialiser péage</button>
+        <button id="clearTollBtn" type="button" class="btn btn-ghost">Réinitialiser le péage</button>
     </div>
 </section>
 
@@ -88,16 +90,11 @@
 </footer>
 
 <!-- ========================
-      SCRIPTS - Bibliothèques externes et scripts locaux
-      ======================== -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-<!-- Modules locaux -->
+     SCRIPTS
+     ======================== -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/ui.js"></script>
-<script src="js/pdf-export.js"></script>
 <script src="js/smoke.js"></script>
 <script src="js/app.js"></script>
 

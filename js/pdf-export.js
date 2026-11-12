@@ -10,6 +10,13 @@ function setTripForPDF(trip) {
     currentTripForPDF = trip;
 }
 
+// Echappe le texte saisi par l'utilisateur avant de l'inserer dans le rapport HTML.
+function escapeHTML(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[c]));
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     if (exportPdfBtn) {
@@ -65,7 +72,6 @@ async function exportTripToPDF() {
                     mapImageData = await html2canvas(mapContainer, { 
                         backgroundColor: '#fff',
                         scale: 1,
-                        allowTaint: true,
                         useCORS: true
                     }).then(canvas => canvas.toDataURL('image/png')).catch(e => {
                         console.warn('Map capture failed:', e);
@@ -106,7 +112,13 @@ async function exportTripToPDF() {
     openPrintWindow(tripData, mapImageData);
 }
 
-function openPrintWindow(data, mapImageData) {
+function openPrintWindow(rawData, mapImageData) {
+    // Tous les champs texte sont echappes (noms, villes, remarque...) ; les images ne
+    // sont acceptees que si elles sont en data:image ou http(s).
+    const data = {};
+    Object.keys(rawData).forEach(k => { data[k] = typeof rawData[k] === 'string' ? escapeHTML(rawData[k]) : rawData[k]; });
+    data.carImage = /^(https?:\/\/|data:image\/)/i.test(rawData.carImage || '') ? escapeHTML(rawData.carImage) : null;
+    mapImageData = /^data:image\//.test(mapImageData || '') ? mapImageData : null;
     const tollValue = parseFloat(String(data.toll).replace(',', '.')) || 0;
     const driverName = [data.firstname, data.lastname].filter(Boolean).join(' ') || 'Non renseigné';
     
@@ -395,30 +407,5 @@ function openPrintWindow(data, mapImageData) {
     // Show success message
     if (typeof showToast === 'function') {
         showToast('Fenêtre d\'impression ouverte - Utilisez "Enregistrer en PDF" dans les options d\'impression', {type: 'info', timeout: 5000});
-    }
-}
-
-/**
- * Capture the map as a canvas data URL
- */
-function captureMapAsImage() {
-    if (!window.detailMap) return null;
-    
-    try {
-        const container = window.detailMap.getContainer();
-        if (!container) return null;
-        
-        // Use html2canvas to capture the map container
-        if (typeof html2canvas !== 'undefined') {
-            return html2canvas(container, { 
-                backgroundColor: '#fff',
-                scale: 1
-            }).then(canvas => canvas.toDataURL('image/png'));
-        }
-        
-        return null;
-    } catch(e) {
-        console.warn('Could not capture map', e);
-        return null;
     }
 }

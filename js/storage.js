@@ -1,18 +1,18 @@
 /* ============================
    STORAGE.JS - LOCALSTORAGE MANAGEMENT
    ============================
-   
+
    Handles persistent data storage using browser's localStorage API.
    Manages two main data types:
    - Trips: GPS recorded journeys with distances, times, drivers, costs
    - Cars: Vehicle inventory with images and descriptions
-   
+
    Data Structure:
    - localStorage['trips']: Array of trip objects
    - localStorage['cars']: Array of car objects
-   
+
    Helper function _generateId() creates simple unique IDs
-   
+
    ============================ */
 
 /* ========================
@@ -41,12 +41,23 @@ function _safeGetItem(key, fallback = '[]') {
     }
 }
 
+// Lit une liste JSON ; une valeur corrompue ne doit pas bloquer l'application.
+function _readList(key) {
+    try {
+        const value = JSON.parse(_safeGetItem(key));
+        return Array.isArray(value) ? value : [];
+    } catch (e) {
+        console.warn(`Donnees "${key}" illisibles, liste vide utilisee`, e);
+        return [];
+    }
+}
+
 /* ========================
    TRIP DATA MANAGEMENT
    ======================== */
 
 function saveTrip(trip) {
-    const trips = JSON.parse(_safeGetItem("trips"));
+    const trips = _readList("trips");
     trip.id = trip.id || _generateId();
     trip.date = trip.date || trip.startTime || new Date().toISOString();
     trips.push(trip);
@@ -54,11 +65,11 @@ function saveTrip(trip) {
 }
 
 function getTrips() {
-    return JSON.parse(_safeGetItem("trips"));
+    return _readList("trips");
 }
 
 function deleteTrip(id) {
-    const trips = JSON.parse(_safeGetItem("trips"));
+    const trips = _readList("trips");
     const filtered = trips.filter(t => t.id !== id);
     return _safeSetItem("trips", JSON.stringify(filtered));
 }
@@ -70,17 +81,17 @@ function replaceTrips(trips) {
 /* ========================
    CAR DATA MANAGEMENT
    ======================== */
+// Retourne le vehicule enregistre, ou null si le stockage est plein / indisponible.
 function saveCar(car) {
-    const cars = JSON.parse(_safeGetItem("cars"));
+    const cars = _readList("cars");
     car.id = car.id || _generateId();
     car.dateAdded = car.dateAdded || new Date().toISOString();
     cars.push(car);
-    _safeSetItem("cars", JSON.stringify(cars));
-    return car;
+    return _safeSetItem("cars", JSON.stringify(cars)) ? car : null;
 }
 
 function getCars() {
-    return JSON.parse(_safeGetItem("cars"));
+    return _readList("cars");
 }
 
 function getCarById(id) {

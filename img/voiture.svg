@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="Véhicule">
+  <rect width="400" height="200" fill="#e0f2fe"/>
+  <path d="M90 128l22-40c5-9 13-14 23-14h120c10 0 18 5 24 13l30 41h12c9 0 17 8 17 17v13H60v-13c0-9 7-17 16-17z" fill="#0ea5e9"/>
+  <path d="M128 88l-14 30h76V84h-52c-4 0-8 1-10 4zm76-4v34h88l-22-29c-3-3-6-5-10-5z" fill="#bae6fd"/>
+  <circle cx="125" cy="158" r="22" fill="#1f2937"/><circle cx="125" cy="158" r="9" fill="#9ca3af"/>
+  <circle cx="290" cy="158" r="22" fill="#1f2937"/><circle cx="290" cy="158" r="9" fill="#9ca3af"/>
+</svg>

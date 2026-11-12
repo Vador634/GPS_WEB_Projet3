@@ -85,11 +85,12 @@ function pass(name) { results.push({name, ok:true}); console.log(`OK : ${name}`)
     }
 }
 
-// Auto-run support: append ?runSmoke=1 to the URL to execute tests and write a short result
+// Lancement automatique : ajouter ?runSmoke=1 a l'URL
+// Les tests attendent le chargement complet de la page (dashboard.js est charge apres ce fichier).
 if (typeof window !== 'undefined' && window.location && window.location.search.indexOf('runSmoke=1') !== -1) {
-    runSmokeTests().then(res => {
+    window.addEventListener('load', () => runSmokeTests().then(res => {
         try { localStorage.setItem('smokeLast', JSON.stringify(res)); } catch(e){}
         if (typeof showToast === 'function') showToast('Tests rapides terminés (voir console)', {type:'info'});
         console.log('Résultat des tests :', res);
-    });
+    }));
 }
